@@ -135,6 +135,14 @@ uvicorn main:app --reload --port 8000
 
 ### 4. Start the frontend
 
+Create `frontend/.env` so the frontend calls the backend directly:
+
+```
+VITE_API_BASE=http://127.0.0.1:8000/api
+```
+
+Then install and run:
+
 ```bash
 cd frontend
 npm install
