@@ -1,0 +1,47 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --color-primary: #0f4c81;
+  --color-primary-light: #1a6bb5;
+  --color-primary-dark: #0a3560;
+  --color-accent: #00a896;
+  --color-bg: #f0f4f8;
+  --color-surface: #ffffff;
+  --color-border: #d1dce6;
+  --color-text: #1a2332;
+  --color-text-muted: #5a6a7e;
+  --color-ai-bg: #f7f9fc;
+  --color-user-bubble: #0f4c81;
+  --color-ai-bubble: #ffffff;
+  --shadow-sm: 0 1px 3px rgba(15, 76, 129, 0.08);
+  --shadow-md: 0 4px 16px rgba(15, 76, 129, 0.12);
+  --radius: 10px;
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button {
+  font-family: var(--font);
+  cursor: pointer;
+}
+
+input, textarea {
+  font-family: var(--font);
+}
