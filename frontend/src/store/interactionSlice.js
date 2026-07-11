@@ -3,14 +3,23 @@ import { createSlice } from '@reduxjs/toolkit'
 const emptyInteraction = () => ({
   id: null,
   doctorName: '',
+  interactionType: 'Meeting',
   date: '',
+  time: '',
+  attendees: '',
+  topicsDiscussed: '',
   products: '',
-  sentiment: '',
+  sentiment: 'neutral',
   brochure: false,
   samples: false,
+  materialsShared: '',
+  samplesDistributed: '',
+  outcomes: '',
+  followUpActions: '',
   notes: '',
   followUpDate: '',
   followUpStatus: 'pending',
+  aiSuggestedFollowups: [],
 })
 
 const initialState = {
@@ -20,7 +29,7 @@ const initialState = {
       id: 'welcome',
       role: 'assistant',
       content:
-        'Welcome! I\'m your HCP Interaction Assistant. Tell me about your visit — e.g. "Today I met Dr. Smith. We discussed Product X. He liked it. Shared brochures."',
+        "Log interaction details here (e.g., 'Met Dr. Smith, discussed Product X efficacy, positive sentiment, shared brochure') or ask for help.",
       toolUsed: null,
     },
   ],
@@ -35,7 +44,8 @@ const interactionSlice = createSlice({
   initialState,
   reducers: {
     setInteraction(state, action) {
-      state.interaction = { ...state.interaction, ...action.payload }
+      const payload = action.payload || {}
+      state.interaction = { ...emptyInteraction(), ...payload }
     },
     addMessage(state, action) {
       state.messages.push({

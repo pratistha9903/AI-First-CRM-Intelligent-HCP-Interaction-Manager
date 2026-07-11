@@ -10,14 +10,6 @@ import {
 import { sendChatMessage } from '../services/api'
 import './ChatPanel.css'
 
-const SUGGESTIONS = [
-  'Today I met Dr. Smith. Discussed Product X. Positive sentiment. Shared brochures.',
-  'Show my last meeting with Dr. Smith',
-  'Summarize today\'s visit',
-  'Schedule follow-up next Monday',
-  'Change sentiment to negative',
-]
-
 export default function ChatPanel() {
   const dispatch = useDispatch()
   const {
@@ -31,11 +23,16 @@ export default function ChatPanel() {
 
   const [input, setInput] = useState('')
   const messagesEndRef = useRef(null)
-  const inputRef = useRef(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isLoading])
+
+  useEffect(() => {
+    const handler = (e) => handleSend(e.detail)
+    window.addEventListener('hcp-chat-send', handler)
+    return () => window.removeEventListener('hcp-chat-send', handler)
+  }, [interaction, pendingConfirmation, isLoading, messages])
 
   const handleSend = async (text) => {
     const message = (text || input).trim()
@@ -73,106 +70,80 @@ export default function ChatPanel() {
       dispatch(
         addMessage({
           role: 'assistant',
-          content: `Sorry, something went wrong: ${err.message}. Make sure the backend is running and GROQ_API_KEY is set.`,
+          content: `Sorry, something went wrong: ${err.message}`,
           toolUsed: null,
         }),
       )
     } finally {
       dispatch(setLoading(false))
-      inputRef.current?.focus()
-    }
-  }
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
     }
   }
 
   return (
-    <div className="chat-panel">
-      <div className="chat-panel-header">
+    <div className="chat-sidebar">
+      <div className="chat-sidebar-header">
+        <div className="ai-icon">🌐</div>
         <div>
           <h2>AI Assistant</h2>
-          <p className="chat-subtitle">LangGraph Agent · Groq LLM</p>
+          <p>Log interaction via chat</p>
         </div>
         {pendingConfirmation && (
-          <span className="confirm-badge">Awaiting confirmation</span>
+          <span className="awaiting-badge">Awaiting save</span>
         )}
       </div>
 
-      <div className="chat-messages">
+      <div className="chat-sidebar-messages">
         {messages.map((msg) => (
-          <div key={msg.id} className={`message message-${msg.role}`}>
-            <div className="message-avatar">
-              {msg.role === 'user' ? 'You' : 'AI'}
+          <div key={msg.id} className={`chat-msg chat-msg-${msg.role}`}>
+            {msg.role === 'assistant' && (
+              <div className="chat-msg-label">AI Assistant</div>
+            )}
+            <div className="chat-msg-bubble">
+              {msg.content.split('\n').map((line, i) => (
+                <span key={i}>
+                  {line}
+                  {i < msg.content.split('\n').length - 1 && <br />}
+                </span>
+              ))}
             </div>
-            <div className="message-body">
-              <div className="message-bubble">
-                {msg.content.split('\n').map((line, i) => (
-                  <span key={i}>
-                    {line}
-                    {i < msg.content.split('\n').length - 1 && <br />}
-                  </span>
-                ))}
-              </div>
-              {msg.toolUsed && (
-                <span className="tool-tag">Tool: {msg.toolUsed.replace(/_/g, ' ')}</span>
-              )}
-            </div>
+            {msg.toolUsed && (
+              <span className="chat-tool-tag">Tool: {msg.toolUsed.replace(/_/g, ' ')}</span>
+            )}
           </div>
         ))}
 
         {isLoading && (
-          <div className="message message-assistant">
-            <div className="message-avatar">AI</div>
-            <div className="message-body">
-              <div className="message-bubble typing">
-                <span /><span /><span />
-              </div>
+          <div className="chat-msg chat-msg-assistant">
+            <div className="chat-msg-bubble typing">
+              <span /><span /><span />
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      {error && <div className="chat-error">{error}</div>}
+      {error && <div className="chat-sidebar-error">{error}</div>}
 
-      <div className="chat-suggestions">
-        {SUGGESTIONS.map((s) => (
-          <button
-            key={s}
-            className="suggestion-chip"
-            onClick={() => handleSend(s)}
-            disabled={isLoading}
-          >
-            {s.length > 55 ? s.slice(0, 55) + '…' : s}
-          </button>
-        ))}
-      </div>
-
-      <div className="chat-input-area">
-        <textarea
-          ref={inputRef}
-          className="chat-input"
+      <div className="chat-sidebar-input">
+        <input
+          type="text"
+          className="chat-text-input"
           placeholder={
             pendingConfirmation
-              ? 'Type "yes" to save or "no" to cancel…'
-              : 'Describe your HCP interaction…'
+              ? 'Type "yes" to save or "no" to cancel...'
+              : 'Describe interaction...'
           }
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          rows={2}
+          onKeyDown={(e) => e.key === 'Enter' && handleSend()}
           disabled={isLoading}
         />
         <button
-          className="send-btn"
+          className="chat-log-btn"
           onClick={() => handleSend()}
           disabled={!input.trim() || isLoading}
         >
-          Send
+          Log
         </button>
       </div>
     </div>

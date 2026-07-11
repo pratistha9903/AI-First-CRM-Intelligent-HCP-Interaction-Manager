@@ -1,100 +1,167 @@
 import './FormPanel.css'
 
-const SENTIMENT_COLORS = {
-  positive: '#00a896',
-  negative: '#e63946',
-  neutral: '#5a6a7e',
-}
+const SENTIMENT_OPTIONS = ['positive', 'neutral', 'negative']
 
-function ReadOnlyField({ label, value, type = 'text' }) {
-  if (type === 'checkbox') {
-    return (
-      <div className="form-field">
-        <label className="form-label">{label}</label>
-        <div className={`form-checkbox ${value ? 'checked' : ''}`}>
-          <span className="checkbox-icon">{value ? '✓' : '—'}</span>
-          <span>{value ? 'Yes' : 'No'}</span>
-        </div>
-      </div>
-    )
-  }
-
-  if (type === 'sentiment') {
-    const color = SENTIMENT_COLORS[value?.toLowerCase()] || 'var(--color-text-muted)'
-    return (
-      <div className="form-field">
-        <label className="form-label">{label}</label>
-        <div className="form-value sentiment-badge" style={{ color, borderColor: color }}>
-          {value || '—'}
-        </div>
-      </div>
-    )
-  }
-
-  if (type === 'textarea') {
-    return (
-      <div className="form-field form-field-full">
-        <label className="form-label">{label}</label>
-        <div className="form-value form-textarea">{value || '—'}</div>
-      </div>
-    )
-  }
-
+function Field({ label, value, placeholder, full = false, multiline = false }) {
+  const display = value || ''
+  const isEmpty = !display
   return (
-    <div className="form-field">
-      <label className="form-label">{label}</label>
-      <div className="form-value">{value || '—'}</div>
+    <div className={`field-group ${full ? 'field-full' : ''}`}>
+      <label className="field-label">{label}</label>
+      {multiline ? (
+        <div className={`field-input field-textarea ${isEmpty ? 'empty' : ''}`}>
+          {isEmpty ? placeholder : display}
+        </div>
+      ) : (
+        <div className={`field-input ${isEmpty ? 'empty' : ''}`}>
+          {isEmpty ? placeholder : display}
+        </div>
+      )}
     </div>
   )
 }
 
-export default function FormPanel({ interaction }) {
+function SentimentField({ value }) {
+  const current = (value || 'neutral').toLowerCase()
+  return (
+    <div className="field-group field-full">
+      <label className="field-label">Observed/Inferred HCP Sentiment</label>
+      <div className="sentiment-group">
+        {SENTIMENT_OPTIONS.map((opt) => (
+          <div
+            key={opt}
+            className={`sentiment-option ${current === opt ? 'selected' : ''}`}
+          >
+            <span className="sentiment-icon">
+              {opt === 'positive' ? '🙂' : opt === 'negative' ? '🙁' : '😐'}
+            </span>
+            <span>{opt.charAt(0).toUpperCase() + opt.slice(1)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function MaterialsSection({ materials, samples }) {
+  return (
+    <div className="field-group field-full">
+      <label className="field-label">Materials Shared / Samples Distributed</label>
+      <div className="materials-row">
+        <div className="material-box">
+          <div className="material-title">Materials Shared</div>
+          <div className="material-value">
+            {materials || 'No materials added'}
+          </div>
+        </div>
+        <div className="material-box">
+          <div className="material-title">Samples Distributed</div>
+          <div className="material-value">
+            {samples || 'No samples added'}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function FormPanel({ interaction, pendingConfirmation, onSuggestionClick }) {
+  const suggestions = interaction.aiSuggestedFollowups?.length
+    ? interaction.aiSuggestedFollowups
+    : [
+        'Schedule follow-up meeting in 2 weeks',
+        'Send product information PDF',
+        'Add HCP to advisory board invite list',
+      ]
+
   return (
     <div className="form-panel">
-      <div className="form-panel-header">
-        <div>
-          <h2>Interaction Form</h2>
-          <p className="form-subtitle">AI-controlled — updates via chat only</p>
+      <div className="form-page-header">
+        <h1>Log HCP Interaction</h1>
+        <div className="form-badges">
+          {pendingConfirmation && (
+            <span className="badge draft">Draft — type YES to save</span>
+          )}
+          {interaction.id && !pendingConfirmation && (
+            <span className="badge saved">Saved #{interaction.id}</span>
+          )}
         </div>
-        {interaction.id && (
-          <span className="interaction-id">ID #{interaction.id}</span>
-        )}
       </div>
 
-      <div className="form-grid">
-        <ReadOnlyField label="Doctor Name" value={interaction.doctorName} />
-        <ReadOnlyField label="Visit Date" value={interaction.date} />
-        <ReadOnlyField label="Products Discussed" value={interaction.products} />
-        <ReadOnlyField
-          label="Sentiment"
-          value={interaction.sentiment}
-          type="sentiment"
-        />
-        <ReadOnlyField
-          label="Brochure Shared"
-          value={interaction.brochure}
-          type="checkbox"
-        />
-        <ReadOnlyField
-          label="Samples Provided"
-          value={interaction.samples}
-          type="checkbox"
-        />
-        <ReadOnlyField
-          label="Follow-up Date"
-          value={interaction.followUpDate}
-        />
-        <ReadOnlyField
-          label="Follow-up Status"
-          value={interaction.followUpStatus}
-        />
-        <ReadOnlyField label="Notes" value={interaction.notes} type="textarea" />
-      </div>
+      <h2 className="section-title">Interaction Details</h2>
+      <p className="section-subtitle">AI-controlled — fields update via chat only</p>
 
-      <div className="form-footer">
-        <div className="ai-badge">
-          <span className="ai-dot" />
-          Form updates automatically when AI processes your messages
+      <div className="form-body">
+        <Field
+          label="HCP Name"
+          value={interaction.doctorName}
+          placeholder="Search or select HCP..."
+        />
+        <Field
+          label="Interaction Type"
+          value={interaction.interactionType}
+          placeholder="Meeting"
+        />
+        <Field
+          label="Date"
+          value={interaction.date ? interaction.date.split('-').reverse().join('-') : ''}
+          placeholder="DD-MM-YYYY"
+        />
+        <Field
+          label="Time"
+          value={interaction.time}
+          placeholder="HH:MM"
+        />
+        <Field
+          label="Attendees"
+          value={interaction.attendees}
+          placeholder="Enter names or search..."
+          full
+        />
+        <Field
+          label="Topics Discussed"
+          value={interaction.topicsDiscussed || interaction.notes}
+          placeholder="Enter key discussion points..."
+          full
+          multiline
+        />
+
+        <MaterialsSection
+          materials={interaction.materialsShared || (interaction.brochure ? 'Brochure shared' : '')}
+          samples={interaction.samplesDistributed || (interaction.samples ? 'Samples provided' : '')}
+        />
+
+        <SentimentField value={interaction.sentiment} />
+
+        <Field
+          label="Outcomes"
+          value={interaction.outcomes}
+          placeholder="Key outcomes or agreements..."
+          full
+          multiline
+        />
+        <Field
+          label="Follow-up Actions"
+          value={interaction.followUpActions || (interaction.followUpDate ? `Follow-up on ${interaction.followUpDate}` : '')}
+          placeholder="Enter next steps or tasks..."
+          full
+          multiline
+        />
+
+        <div className="field-group field-full">
+          <label className="field-label">AI Suggested Follow-ups</label>
+          <div className="suggestions-list">
+            {suggestions.map((s) => (
+              <button
+                key={s}
+                type="button"
+                className="suggestion-link"
+                onClick={() => onSuggestionClick?.(s)}
+              >
+                + {s}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

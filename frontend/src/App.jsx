@@ -5,28 +5,23 @@ import './App.css'
 
 export default function App() {
   const interaction = useSelector((state) => state.interaction.interaction)
+  const pendingConfirmation = useSelector((state) => state.interaction.pendingConfirmation)
+
+  const handleSuggestionClick = (suggestion) => {
+    window.dispatchEvent(new CustomEvent('hcp-chat-send', { detail: suggestion }))
+  }
 
   return (
     <div className="app">
-      <header className="app-header">
-        <div className="header-brand">
-          <div className="brand-icon">Rx</div>
-          <div>
-            <h1>AI-First CRM</h1>
-            <p>HCP Interaction Manager</p>
-          </div>
-        </div>
-        <div className="header-meta">
-          <span className="meta-pill">LangGraph Agent</span>
-          <span className="meta-pill">Groq · llama-3.3-70b-versatile</span>
-        </div>
-      </header>
-
-      <main className="app-main">
-        <section className="panel-form">
-          <FormPanel interaction={interaction} />
+      <main className="app-layout">
+        <section className="layout-form">
+          <FormPanel
+            interaction={interaction}
+            pendingConfirmation={pendingConfirmation}
+            onSuggestionClick={handleSuggestionClick}
+          />
         </section>
-        <section className="panel-chat">
+        <section className="layout-chat">
           <ChatPanel />
         </section>
       </main>
