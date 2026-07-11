@@ -237,6 +237,3 @@ Next meeting is tomorrow
 
 
 
-## License
-
-Built for the Naukri APR Round 1 technical assignment.
