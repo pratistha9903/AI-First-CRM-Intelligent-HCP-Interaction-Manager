@@ -22,8 +22,7 @@ Built for the **Naukri APR Round 1** technical assignment: *AI-First CRM HCP Mod
 
 ## Demo Video
 
-[https://github.com/pratistha9903/AI-First-CRM-Intelligent-HCP-Interaction-Manager/issues/4#issue-4862816453
-](https://github.com/user-attachments/assets/5ab17aac-f9f1-4e5a-b1da-5253dfb7b93a)
+https://github.com/user-attachments/assets/0156b2cf-2de1-40b8-8db1-3ec37dc78e6f
 
 
 ## Architecture
