@@ -9,6 +9,7 @@ from agent.tools import (
     tool_confirm_save,
     tool_edit_interaction,
     tool_log_interaction,
+    tool_save_interaction,
     tool_schedule_followup,
     tool_search_interaction,
     tool_summarize_interaction,
@@ -24,9 +25,13 @@ def build_agent_graph(db: Session):
         return state
 
     def analyze_intent(state: AgentState) -> AgentState:
+        current = state.get("current_interaction") or {}
+        has_form_data = bool(current.get("doctorName", "").strip())
         intent = detect_intent(
             state["user_message"],
             state.get("conversation_history", []),
+            pending_confirmation=state.get("pending_confirmation", False),
+            has_form_data=has_form_data,
         )
         return {**state, "intent": intent}
 
@@ -39,9 +44,10 @@ def build_agent_graph(db: Session):
         current = state.get("current_interaction") or _empty_interaction()
         undo_stack = state.get("undo_stack") or []
 
-        if state.get("pending_confirmation") and intent == "confirm":
-            payload = state.get("pending_payload") or current
-            result = tool_confirm_save(payload, db)
+        if intent == "confirm":
+            # Always save exactly what is on the form right now
+            payload = dict(current)
+            result = tool_save_interaction(payload, db)
             return {
                 **state,
                 "tool_name": "confirm_save",
@@ -88,6 +94,11 @@ def build_agent_graph(db: Session):
             if result.get("requires_confirmation"):
                 new_state["pending_confirmation"] = True
                 new_state["pending_payload"] = result.get("pending_payload", {})
+
+            if result.get("pending_payload") is not None and intent == "edit_interaction":
+                new_state["pending_payload"] = result["pending_payload"]
+                if state.get("pending_confirmation"):
+                    new_state["pending_confirmation"] = True
 
             if result.get("undo_snapshot"):
                 new_stack = list(undo_stack) + [result["undo_snapshot"]]
