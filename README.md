@@ -1,70 +1,121 @@
 # AI-First CRM — Intelligent HCP Interaction Manager
 
-An AI-first Customer Relationship Management (CRM) system for pharmaceutical field representatives to log Healthcare Professional (HCP) interactions via conversational AI. The React form is **read-only** — only the LangGraph AI agent updates it.
+An AI-first Customer Relationship Management (CRM) system for pharmaceutical field representatives to log Healthcare Professional (HCP) interactions. The **Log HCP Interaction** screen combines a structured read-only form with a conversational AI assistant — the LangGraph agent is the core product; the form is the display layer.
+
+## Assignment Overview
+
+Built for the **Naukri APR Round 1** technical assignment: *AI-First CRM HCP Module — Log Interaction Screen*.
+
+| Requirement | Implementation |
+|-------------|----------------|
+| Log Interaction Screen | Split UI: structured form (left) + chat (right) |
+| Form **or** chat logging | Chat drives the form; form is AI-controlled (read-only) |
+| React + Redux | React 18, Redux Toolkit, Vite |
+| FastAPI backend | Python FastAPI on port 8000 |
+| LangGraph agent | **Mandatory** — `backend/agent/graph.py` |
+| Groq LLM | `llama-3.3-70b-versatile` *(assignment-approved; gemma2-9b-it decommissioned)* |
+| PostgreSQL | Docker Compose, dedicated container on port **5433** |
+| Google Inter font | Loaded in `frontend/index.html` |
 
 ## Architecture
 
 ```
-User → React Chat → FastAPI /chat → LangGraph Agent → Groq LLM
-                                          ↓
-                                    Tool Selection
-                                          ↓
-                                      Database
-                                          ↓
-                                    Redux State → React Form
+User types in AI Assistant chat
+        ↓
+React (Redux) → POST /api/chat
+        ↓
+FastAPI → LangGraph Agent
+        ↓
+Groq LLM → Intent Detection → Tool Selection
+        ↓
+Execute Tool → PostgreSQL
+        ↓
+Return { reply, interaction } → Redux → Form updates
 ```
 
-### Tech Stack
+### LangGraph Agent Role
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 18, Redux Toolkit, Vite |
-| Backend | Python, FastAPI |
-| AI Agent | LangGraph |
-| LLM | Groq — `llama-3.3-70b-versatile` (assignment-approved; `gemma2-9b-it` decommissioned by Groq) |
-| Database | **PostgreSQL** (via Docker Compose) |
-| Font | Google Inter |
+The LangGraph agent **manages all HCP interactions**. It:
 
-## LangGraph Agent & 5 Tools
+1. Receives natural-language messages from the field rep
+2. Classifies intent (log, edit, search, summarize, schedule, confirm)
+3. Selects and executes the correct tool
+4. Uses the LLM to extract structured data from conversation
+5. Reads/writes PostgreSQL
+6. Returns updated interaction JSON so the React form stays in sync
 
-The LangGraph agent is the core product. It receives chat messages, detects intent via LLM, selects a tool, executes it, updates the database, and returns the updated interaction form.
+The frontend **only** calls `/api/chat`. All business logic runs inside the agent.
 
-| # | Tool | Description |
-|---|------|-------------|
-| 1 | **Log Interaction** *(required)* | Extracts doctor, date, products, sentiment, brochure/samples from natural language. Asks for missing info and confirms before saving. |
-| 2 | **Edit Interaction** *(required)* | Modifies specific fields in the current interaction (e.g. "Change sentiment to negative"). |
-| 3 | **Search Interaction** | Finds past meetings by doctor name and loads them into the form. |
-| 4 | **Summarize Interaction** | Generates a concise professional summary of a visit. |
-| 5 | **Schedule Follow-up** | Sets follow-up date, status, and reminder notes. |
+## UI — Log HCP Interaction Screen
+
+**Left panel — Interaction Details (read-only, AI-filled):**
+
+| Field | Description |
+|-------|-------------|
+| HCP Name | Doctor / healthcare professional |
+| Interaction Type | Meeting, Call, Email, etc. |
+| Date & Time | Auto-fills today + current time on new logs |
+| Attendees | Other people present |
+| Topics Discussed | Key discussion points |
+| Materials Shared / Samples | Brochures, PDFs, samples |
+| HCP Sentiment | Positive / Neutral / Negative |
+| Outcomes | Agreements and results |
+| Follow-up Actions | Next steps and tasks |
+| AI Suggested Follow-ups | Clickable suggestions → sent to chat |
+
+**Right panel — AI Assistant:**
+
+- Chat interface with **Log** button
+- All 5 LangGraph tools accessible via natural language
+
+## LangGraph — 5 Tools
+
+| # | Tool | Required | Example command |
+|---|------|----------|-----------------|
+| 1 | **Log Interaction** | ✅ | *"Today I met Dr. Smith. Discussed Product X. Positive sentiment. Shared brochures."* |
+| 2 | **Edit Interaction** | ✅ | *"Change sentiment to negative"* |
+| 3 | **Search Interaction** | ⭐ | *"Show my last meeting with Dr. Smith"* |
+| 4 | **Summarize Interaction** | ⭐ | *"Summarize today's visit"* |
+| 5 | **Schedule Follow-up** | ⭐ | *"Next meeting is tomorrow"* |
 
 ### Bonus AI Behaviors
 
-- **Ask for missing information** — "I met a doctor today" → AI asks for the doctor's name
-- **Confirmation before saving** — Shows extracted fields and asks "Should I save this?"
-- **Undo last edit** — "Undo the previous change" reverts the form
-- **Conversation memory** — Session-based context for follow-up messages
-- **Field validation** — Prevents empty doctor names, invalid dates, invalid sentiment values
+- Asks for missing information (e.g. doctor name)
+- Confirmation before saving — type **`yes`** or **`save to database`**
+- Edit then save — form is always the source of truth on save
+- Undo last edit
+- Session conversation memory
+- Field validation (doctor name, dates, sentiment)
+- Auto-fills today's date, topics/notes, and follow-up dates ("tomorrow", "next Monday")
 
 ## Project Structure
 
 ```
+AI-First CRM Intelligent HCP Interaction Manager/
 ├── frontend/
 │   ├── src/
-│   │   ├── components/   # ChatPanel, FormPanel
-│   │   ├── store/        # Redux (interactionSlice)
-│   │   └── services/     # API client
+│   │   ├── components/
+│   │   │   ├── FormPanel.jsx      # Log HCP Interaction form
+│   │   │   └── ChatPanel.jsx      # AI Assistant sidebar
+│   │   ├── store/
+│   │   │   ├── interactionSlice.js  # Redux state
+│   │   │   └── store.js
+│   │   └── services/api.js        # POST /api/chat
+│   ├── .env.example
 │   └── package.json
 ├── backend/
 │   ├── agent/
-│   │   ├── graph.py      # LangGraph workflow
-│   │   ├── tools.py      # 5 agent tools
-│   │   ├── prompts.py    # LLM prompts per tool
-│   │   └── state.py      # Agent state schema
-│   ├── main.py           # FastAPI entry point
-│   ├── routes.py         # /chat + /interaction CRUD
-│   ├── models.py         # SQLAlchemy Interaction model
-│   └── database.py
-├── docker-compose.yml    # PostgreSQL
+│   │   ├── graph.py               # LangGraph workflow
+│   │   ├── tools.py               # 5 agent tools
+│   │   ├── prompts.py             # LLM prompts
+│   │   └── state.py               # Agent state schema
+│   ├── main.py                    # FastAPI entry
+│   ├── routes.py                  # /chat + CRUD APIs
+│   ├── models.py                  # PostgreSQL Interaction model
+│   ├── database.py                # DB + auto-migration
+│   └── requirements.txt
+├── docker-compose.yml             # PostgreSQL (port 5433)
+├── start.bat                      # Windows one-click launcher
 └── README.md
 ```
 
@@ -72,52 +123,46 @@ The LangGraph agent is the core product. It receives chat messages, detects inte
 
 - **Node.js** 18+
 - **Python** 3.11+
+- **Docker Desktop** (for PostgreSQL)
 - **Groq API key** — [console.groq.com](https://console.groq.com/)
-- **Docker Desktop** — required for PostgreSQL (assignment requirement)
 
 ## Quick Start
 
-### 1. Clone & configure
+### 1. Configure environment
 
 ```bash
 cd "AI-First CRM Intelligent HCP Interaction Manager"
 cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 ```
 
-Edit `backend/.env` and set your Groq API key:
+Edit `backend/.env`:
 
 ```
 GROQ_API_KEY=gsk_your_key_here
 DATABASE_URL=postgresql://hcp_user:hcp_password@localhost:5433/hcp_crm
-GROQ_MODEL=llama-3.3-70b-versatile  # assignment-approved alternative to gemma2-9b-it
+GROQ_MODEL=llama-3.3-70b-versatile
 ```
 
-> **Note on LLM model:** The assignment specifies `gemma2-9b-it` or `llama-3.3-70b-versatile`. Groq decommissioned `gemma2-9b-it` in October 2025, so this project uses `llama-3.3-70b-versatile`, which the assignment explicitly allows.
+> **LLM note:** Assignment lists `gemma2-9b-it` or `llama-3.3-70b-versatile`. Groq decommissioned `gemma2-9b-it`; this project uses the assignment-approved alternative.
 
-### 2. Start PostgreSQL (dedicated container for this project)
+### 2. Start PostgreSQL
 
-This project uses its **own** PostgreSQL container — it does **not** use any existing Postgres on your machine.
-
-| Setting | Value |
-|---------|-------|
-| Container name | `hcp_crm_postgres` |
-| Host port | **5433** (avoids conflict with default Postgres on 5432) |
-| Database | `hcp_crm` |
-| User / Password | `hcp_user` / `hcp_password` |
-
-Open **Docker Desktop**, then run:
+Open **Docker Desktop**, then from the **project root**:
 
 ```bash
 docker compose up -d
+docker compose ps    # wait until healthy
 ```
 
-Wait until the database is healthy:
+| Setting | Value |
+|---------|-------|
+| Container | `hcp_crm_postgres` |
+| Port | **5433** (not 5432 — avoids conflicts) |
+| Database | `hcp_crm` |
+| User / Password | `hcp_user` / `hcp_password` |
 
-```bash
-docker compose ps
-```
-
-### 3. Start the backend
+### 3. Start backend
 
 ```bash
 cd backend
@@ -133,15 +178,9 @@ pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
 
-### 4. Start the frontend
+Verify: http://127.0.0.1:8000/api/health
 
-Create `frontend/.env` so the frontend calls the backend directly:
-
-```
-VITE_API_BASE=http://127.0.0.1:8000/api
-```
-
-Then install and run:
+### 4. Start frontend
 
 ```bash
 cd frontend
@@ -151,55 +190,87 @@ npm run dev
 
 Open **http://localhost:5173**
 
+### Windows shortcut
+
+Double-click `start.bat` in the project root (starts Docker, backend, frontend).
+
+## How to Use
+
+### Log a new visit
+
+1. Type in chat:
+   ```
+   Today I met Dr. Yashi. Discussed thyroid medicine. Positive sentiment. Shared brochures.
+   ```
+2. Form fills automatically (draft — not saved yet)
+3. Type **`yes`** or **`save to database`** to save to PostgreSQL
+4. Form shows **Saved #ID**
+
+### Edit, search, summarize, schedule
+
+```
+Change sentiment to negative
+Show my last meeting with Yashi
+Summarize today's visit
+Next meeting is tomorrow
+```
+
+### Important rules
+
+| Rule | Why |
+|------|-----|
+| Always type **yes** / **save** after logging | Data is not in DB until confirmed |
+| Search using the **same doctor name** you saved | Search matches by HCP name |
+| Form is read-only | AI-first design — agent controls all fields |
+
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/chat` | Main endpoint — frontend sends chat messages here |
-| `POST` | `/api/interaction` | Create interaction (internal/CRUD) |
-| `GET` | `/api/interaction` | List interactions |
-| `GET` | `/api/interaction/{id}` | Get interaction by ID |
-| `PUT` | `/api/interaction/{id}` | Update interaction |
-| `DELETE` | `/api/interaction/{id}` | Delete interaction |
+| `POST` | `/api/chat` | **Main endpoint** — frontend chat |
 | `GET` | `/api/health` | Health check |
+| `POST` | `/api/interaction` | Create interaction (CRUD) |
+| `GET` | `/api/interaction` | List all interactions |
+| `GET` | `/api/interaction/{id}` | Get by ID |
+| `PUT` | `/api/interaction/{id}` | Update by ID |
+| `DELETE` | `/api/interaction/{id}` | Delete by ID |
 
-## Demo Commands
+## Demo Script (for video)
 
-Try these in the chat panel:
-
-```
-Today I met Dr. Smith. We discussed Product X. He liked it. Shared brochures.
-```
-
-```
-Sorry, sentiment should be negative.
-```
+Run these in order for a 10–15 minute submission video:
 
 ```
-Show my last meeting with Dr. Smith.
+1. Today I met Dr. Smith. Discussed Product X. Positive sentiment. Shared brochures.
+2. yes
+3. Change sentiment to negative
+4. save to database
+5. Show my last meeting with Dr. Smith
+6. Summarize today's visit
+7. Schedule follow-up next Monday
+8. Undo the previous change
 ```
 
-```
-Summarize today's visit.
-```
+Also show: code walkthrough of `graph.py`, `tools.py`, `interactionSlice.js`.
 
-```
-Schedule follow-up next Monday.
-```
+## Submission Deliverables
 
-```
-Undo the previous change.
-```
+| Deliverable | Status |
+|-------------|--------|
+| GitHub repo (frontend + backend) | Push to GitHub |
+| README with setup instructions | ✅ This file |
+| 10–15 min video demo | Record and upload |
+| Google Form submission | [Submit here](https://forms.gle/XdvLNBJkbdVDGADM8) |
 
-## Video Demo Checklist
+## Troubleshooting
 
-For your 10–15 minute submission video, demonstrate:
-
-1. Frontend walkthrough (split screen: read-only form + chat)
-2. All 5 LangGraph tools working
-3. Confirmation flow (log → confirm → save)
-4. Code structure overview (`agent/graph.py`, `tools.py`, Redux store)
-5. Brief summary of the task understanding
+| Problem | Fix |
+|---------|-----|
+| Database error on startup | `docker compose up -d` from project root |
+| Chat shows "Not Found" | Restart frontend; check `frontend/.env` has `VITE_API_BASE` |
+| Port 8000 busy | Kill old process or use `--port 8080` |
+| Form not filling | Restart backend after code changes |
+| Search finds nothing | Use exact doctor name; type **yes** to save first |
+| `model_decommissioned` | Use `llama-3.3-70b-versatile` in `.env` |
 
 ## License
 
