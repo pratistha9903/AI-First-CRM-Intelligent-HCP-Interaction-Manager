@@ -186,7 +186,48 @@ def _looks_like_log(message: str) -> bool:
     return any(s in text for s in log_signals)
 
 
+def _looks_like_save(message: str) -> bool:
+    text = message.strip().lower()
+    save_phrases = (
+        "yes", "y", "yeah", "yep", "ok", "okay", "save", "confirm",
+        "go ahead", "correct", "sure", "do it", "save it",
+        "save to database", "save the data", "store", "store it",
+        "save this", "save changes", "update database", "persist",
+    )
+    if text in save_phrases:
+        return True
+    if any(text.startswith(p + " ") for p in save_phrases):
+        return True
+    return "save" in text and any(w in text for w in ("database", "data", "changes", "record"))
+
+
+def _looks_like_new_visit(message: str) -> bool:
+    text = message.lower()
+    return any(
+        p in text
+        for p in (
+            "new visit", "new interaction", "log new", "another doctor",
+            "different doctor", "start over", "new meeting with", "log another",
+        )
+    )
+
+
+def _quick_edit_intent(message: str, has_saved_id: bool) -> Optional[str]:
+    if not has_saved_id:
+        return None
+    text = message.lower()
+    edit_signals = (
+        "change ", "update ", "edit ", "modify ", "set ", "correct ", "fix ",
+    )
+    if any(text.startswith(s) or f" {s.strip()} " in f" {text} " for s in edit_signals):
+        return "edit_interaction"
+    return None
+
+
 def _quick_schedule_intent(message: str) -> Optional[str]:
+    # Don't treat save commands as scheduling (e.g. "save follow up changes")
+    if _looks_like_save(message):
+        return None
     # Full visit logs may mention follow-ups — let log_interaction handle those
     if _looks_like_log(message):
         return None
@@ -256,15 +297,24 @@ def _quick_intent(message: str, pending_confirmation: bool, has_form_data: bool 
 
 
 def detect_intent(
-    message: str, history: list[dict], pending_confirmation: bool = False, has_form_data: bool = False
+    message: str,
+    history: list[dict],
+    pending_confirmation: bool = False,
+    has_form_data: bool = False,
+    has_saved_id: bool = False,
 ) -> str:
-    schedule = _quick_schedule_intent(message)
-    if schedule:
-        return schedule
-
+    # Save/cancel first — before schedule (avoids "save follow up" → schedule bug)
     quick = _quick_intent(message, pending_confirmation, has_form_data)
     if quick:
         return quick
+
+    edit = _quick_edit_intent(message, has_saved_id)
+    if edit:
+        return edit
+
+    schedule = _quick_schedule_intent(message)
+    if schedule:
+        return schedule
 
     llm = get_llm()
     context = ""
@@ -289,15 +339,20 @@ def tool_log_interaction(
     response = llm.invoke(prompt)
     extracted = _parse_json(response.content)
 
-    # New visit — do not merge with a previously saved interaction (keeps old id/data)
-    if current.get("id"):
+    # Saved record: update in place unless user explicitly starts a new visit
+    if current.get("id") and not _looks_like_new_visit(message):
+        base = dict(current)
+        merged = _merge_interaction(base, extracted)
+        merged["id"] = current["id"]
+    elif current.get("id"):
         base = _empty_interaction()
+        merged = _merge_interaction(base, extracted)
+        merged["id"] = None
     else:
         base = {**_empty_interaction(), **current}
         base["id"] = None
-
-    merged = _merge_interaction(base, extracted)
-    merged["id"] = None
+        merged = _merge_interaction(base, extracted)
+        merged["id"] = None
     merged["date"] = _resolve_log_date(extracted.get("date", ""), message, today)
 
     # Follow-up date if mentioned in the same log message
@@ -339,7 +394,10 @@ def tool_log_interaction(
         extracted=json.dumps(merged, indent=2)
     )
     confirmation = llm.invoke(confirm_prompt).content.strip()
-    confirmation += "\n\n⚠️ Not saved yet — type **YES** to save to the database."
+    if merged.get("id"):
+        confirmation += f"\n\n⚠️ Updates not saved yet — type **YES** to update record #{merged['id']}."
+    else:
+        confirmation += "\n\n⚠️ Not saved yet — type **YES** to save to the database."
     return {
         "success": True,
         "requires_confirmation": True,
@@ -347,6 +405,15 @@ def tool_log_interaction(
         "reply": confirmation,
         "pending_payload": merged,
     }
+
+
+def _coerce_record_id(value: Any) -> Optional[int]:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def tool_save_interaction(payload: dict, db: Session) -> dict[str, Any]:
@@ -359,7 +426,7 @@ def tool_save_interaction(payload: dict, db: Session) -> dict[str, Any]:
             "interaction": payload,
         }
 
-    record_id = payload.get("id")
+    record_id = _coerce_record_id(payload.get("id"))
     if record_id:
         db_record = db.query(Interaction).filter(Interaction.id == record_id).first()
         if db_record:
@@ -429,6 +496,15 @@ def tool_edit_interaction(
     for field, value in fields.items():
         if field in ("brochure", "samples"):
             updated[field] = str(value).lower() in ("true", "yes", "1")
+        elif field == "followUpDate":
+            parsed = _parse_date(str(value))
+            updated[field] = parsed.isoformat() if parsed else str(value)
+            if updated[field]:
+                updated["followUpStatus"] = "scheduled"
+        elif field == "followUpActions" and value:
+            updated[field] = str(value).strip()
+            if updated.get("followUpDate"):
+                updated["followUpStatus"] = "scheduled"
         elif field == "notes" and current.get("notes") and value:
             # Append new note to existing notes
             existing = current.get("notes", "").strip()
@@ -448,8 +524,10 @@ def tool_edit_interaction(
             "interaction": current,
         }
 
-    if updated.get("id"):
-        db_record = db.query(Interaction).filter(Interaction.id == updated["id"]).first()
+    record_id = _coerce_record_id(updated.get("id"))
+    if record_id:
+        updated["id"] = record_id
+        db_record = db.query(Interaction).filter(Interaction.id == record_id).first()
         if db_record:
             _apply_payload_to_record(db_record, updated)
             db.commit()
@@ -459,7 +537,7 @@ def tool_edit_interaction(
     explanation = result.get("explanation", "Updated the interaction.")
     saved_note = ""
     if updated.get("id"):
-        saved_note = " Changes saved to database."
+        saved_note = f" Changes saved to record #{updated['id']}."
     elif current.get("doctorName") or updated.get("doctorName"):
         saved_note = " Form updated (not in database yet — type SAVE or YES when ready)."
 
@@ -637,11 +715,13 @@ def tool_schedule_followup(
     action_text = schedule.get("reminderNote") or f"Follow-up meeting on {follow_up_date}"
     updated["followUpActions"] = action_text
 
-    if current.get("id"):
-        record = db.query(Interaction).filter(Interaction.id == current["id"]).first()
+    record_id = _coerce_record_id(current.get("id"))
+    if record_id:
+        record = db.query(Interaction).filter(Interaction.id == record_id).first()
         if record:
             record.follow_up_date = _parse_date(follow_up_date)
             record.follow_up_status = updated["followUpStatus"]
+            record.follow_up_actions = action_text
             if schedule.get("reminderNote"):
                 existing_notes = record.notes or ""
                 record.notes = (
@@ -653,6 +733,8 @@ def tool_schedule_followup(
 
     reminder = schedule.get("reminderNote", "")
     reply = f"Follow-up scheduled for {follow_up_date}."
+    if updated.get("id"):
+        reply += f" Saved to record #{updated['id']}."
     if reminder:
         reply += f" Reminder: {reminder}"
     return {

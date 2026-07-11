@@ -46,7 +46,7 @@ EDIT_INTERACTION_PROMPT = """The user wants to edit fields in the current HCP in
 Current interaction:
 {current_interaction}
 
-Valid fields: doctorName, interactionType, date, time, attendees, topicsDiscussed, products, sentiment, brochure, samples, materialsShared, samplesDistributed, outcomes, followUpActions, notes, followUpDate
+Valid fields: doctorName, interactionType, date, time, attendees, topicsDiscussed, products, sentiment, brochure, samples, materialsShared, samplesDistributed, outcomes, followUpActions, followUpDate, followUpStatus, notes
 
 Return ONLY valid JSON:
 {{"fields": {{"fieldName": "newValue"}}, "explanation": "brief description of changes"}}"""
