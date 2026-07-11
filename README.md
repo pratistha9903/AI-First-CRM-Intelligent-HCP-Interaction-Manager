@@ -70,13 +70,13 @@ The frontend **only** calls `/api/chat`. All business logic runs inside the agen
 
 ## LangGraph — 5 Tools
 
-| # | Tool | Required | Example command |
-|---|------|----------|-----------------|
-| 1 | **Log Interaction** | ✅ | *"Today I met Dr. Smith. Discussed Product X. Positive sentiment. Shared brochures."* |
-| 2 | **Edit Interaction** | ✅ | *"Change sentiment to negative"* |
-| 3 | **Search Interaction** | ⭐ | *"Show my last meeting with Dr. Smith"* |
-| 4 | **Summarize Interaction** | ⭐ | *"Summarize today's visit"* |
-| 5 | **Schedule Follow-up** | ⭐ | *"Next meeting is tomorrow"* |
+| # | Tool | Example command |
+|---|------|--------------------|
+| 1 | **Log Interaction** | *"Today I met Dr. Smith. Discussed Product X. Positive sentiment. Shared brochures."* |
+| 2 | **Edit Interaction** | *"Change sentiment to negative"* |
+| 3 | **Search Interaction** | *"Show my last meeting with Dr. Smith"* |
+| 4 | **Summarize Interaction** | *"Summarize today's visit"* |
+| 5 | **Schedule Follow-up** | *"Next meeting is tomorrow"* |
 
 ### Bonus AI Behaviors
 
@@ -235,42 +235,7 @@ Next meeting is tomorrow
 | `PUT` | `/api/interaction/{id}` | Update by ID |
 | `DELETE` | `/api/interaction/{id}` | Delete by ID |
 
-## Demo Script (for video)
 
-Run these in order for a 10–15 minute submission video:
-
-```
-1. Today I met Dr. Smith. Discussed Product X. Positive sentiment. Shared brochures.
-2. yes
-3. Change sentiment to negative
-4. save to database
-5. Show my last meeting with Dr. Smith
-6. Summarize today's visit
-7. Schedule follow-up next Monday
-8. Undo the previous change
-```
-
-Also show: code walkthrough of `graph.py`, `tools.py`, `interactionSlice.js`.
-
-## Submission Deliverables
-
-| Deliverable | Status |
-|-------------|--------|
-| GitHub repo (frontend + backend) | Push to GitHub |
-| README with setup instructions | ✅ This file |
-| 10–15 min video demo | Record and upload |
-| Google Form submission | [Submit here](https://forms.gle/XdvLNBJkbdVDGADM8) |
-
-## Troubleshooting
-
-| Problem | Fix |
-|---------|-----|
-| Database error on startup | `docker compose up -d` from project root |
-| Chat shows "Not Found" | Restart frontend; check `frontend/.env` has `VITE_API_BASE` |
-| Port 8000 busy | Kill old process or use `--port 8080` |
-| Form not filling | Restart backend after code changes |
-| Search finds nothing | Use exact doctor name; type **yes** to save first |
-| `model_decommissioned` | Use `llama-3.3-70b-versatile` in `.env` |
 
 ## License
 
