@@ -16,6 +16,13 @@ Built for the **Naukri APR Round 1** technical assignment: *AI-First CRM HCP Mod
 | Groq LLM | `llama-3.3-70b-versatile` *(assignment-approved; gemma2-9b-it decommissioned)* |
 | PostgreSQL | Docker Compose, dedicated container on port **5433** |
 | Google Inter font | Loaded in `frontend/index.html` |
+---
+
+
+
+## Demo Video
+
+https://github.com/pratistha9903/AI-First-CRM-Intelligent-HCP-Interaction-Manager/issues/4#issue-4862816453
 
 ## Architecture
 
