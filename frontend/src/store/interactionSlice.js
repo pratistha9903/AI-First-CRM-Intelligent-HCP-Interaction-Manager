@@ -45,7 +45,11 @@ const interactionSlice = createSlice({
   reducers: {
     setInteraction(state, action) {
       const payload = action.payload || {}
-      state.interaction = { ...emptyInteraction(), ...payload }
+      // Keep DB id if backend response omits it (prevents duplicate records on re-save)
+      const id = payload.id != null && payload.id !== ''
+        ? payload.id
+        : state.interaction?.id ?? null
+      state.interaction = { ...emptyInteraction(), ...payload, id }
     },
     addMessage(state, action) {
       state.messages.push({

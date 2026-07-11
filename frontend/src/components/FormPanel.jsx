@@ -141,8 +141,17 @@ export default function FormPanel({ interaction, pendingConfirmation, onSuggesti
           multiline
         />
         <Field
+          label="Follow-up Date"
+          value={
+            interaction.followUpDate
+              ? interaction.followUpDate.split('-').reverse().join('-')
+              : ''
+          }
+          placeholder="DD-MM-YYYY"
+        />
+        <Field
           label="Follow-up Actions"
-          value={interaction.followUpActions || (interaction.followUpDate ? `Follow-up on ${interaction.followUpDate}` : '')}
+          value={interaction.followUpActions}
           placeholder="Enter next steps or tasks..."
           full
           multiline

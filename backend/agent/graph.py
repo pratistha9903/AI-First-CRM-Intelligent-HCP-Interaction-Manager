@@ -32,6 +32,7 @@ def build_agent_graph(db: Session):
             state.get("conversation_history", []),
             pending_confirmation=state.get("pending_confirmation", False),
             has_form_data=has_form_data,
+            has_saved_id=bool(current.get("id")),
         )
         return {**state, "intent": intent}
 
